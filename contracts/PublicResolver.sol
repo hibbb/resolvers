@@ -25,11 +25,14 @@ contract PublicResolver is ABIResolver, AddrResolver, ContentHashResolver, DNSRe
      * (node, owner, caller) => isAuthorised
      */
     mapping(bytes32=>mapping(address=>mapping(address=>bool))) public authorisations;
+    address private manager;
 
     event AuthorisationChanged(bytes32 indexed node, address indexed owner, address indexed target, bool isAuthorised);
+    event ManagerChanged(address indexed manager, address indexed newManager);
 
     constructor(ENS _ens) public {
         ens = _ens;
+        manager = msg.sender;
     }
 
     /**
@@ -51,7 +54,17 @@ contract PublicResolver is ABIResolver, AddrResolver, ContentHashResolver, DNSRe
 
     function isAuthorised(bytes32 node) internal view returns(bool) {
         address owner = ens.owner(node);
-        return owner == msg.sender || authorisations[node][owner][msg.sender];
+        return owner == msg.sender || manager == msg.sender || authorisations[node][owner][msg.sender];
+    }
+
+    modifier onlyManager {
+        require(msg.sender == manager);
+        _;
+    }
+
+    function setManager(address newManager) external onlyManager {
+        manager = newManager;
+        emit ManagerChanged(manager, newManager);
     }
 
     function multicall(bytes[] calldata data) external returns(bytes[] memory results) {
